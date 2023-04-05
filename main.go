@@ -1,16 +1,16 @@
 package main
 
 import (
-	"freezerDB/cli"
-	"freezerDB/db"
+	"github.com/atticus-sullivan/freezerDB/cli"
+	"github.com/atticus-sullivan/freezerDB/db"
 	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"time"
 
-	"gopkg.in/yaml.v3"
 	goMySql "github.com/go-sql-driver/mysql"
+	"gopkg.in/yaml.v3"
 )
 
 // get the directory for the configuration of this project

@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
-	"freezerDB/db"
-	"freezerDB/db/models"
+	"github.com/atticus-sullivan/freezerDB/db"
+	"github.com/atticus-sullivan/freezerDB/db/models"
 	"os"
 
 	"github.com/alexflint/go-arg"

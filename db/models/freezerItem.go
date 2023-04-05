@@ -1,7 +1,7 @@
 package models
 
 import (
-	"freezerDB/db"
+	"github.com/atticus-sullivan/freezerDB/db"
 	"io"
 	"strconv"
 	"time"

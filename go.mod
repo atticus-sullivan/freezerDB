@@ -1,4 +1,4 @@
-module freezerDB
+module github.com/atticus-sullivan/freezerDB
 
 go 1.20
 

@@ -119,3 +119,23 @@ func GetAllFreezerItems(db *db.DB) (FreezerItems, error) {
 	}
 	return ret, nil
 }
+
+// FillDefaults sets any zero values in the given FreezerItem to their
+// default values based on the provided Defaults.
+func (fi *FreezerItem) FillDefaults(defaults *FreezerItem) {
+    if fi.Date.IsZero() {
+        fi.Date = defaults.Date
+    }
+    if fi.Identifier == "" {
+        fi.Identifier = defaults.Identifier
+    }
+    if fi.Amount == "" {
+        fi.Amount = defaults.Amount
+    }
+    if fi.Misc == "" {
+        fi.Misc = defaults.Misc
+    }
+    if fi.ItemName == "" {
+        fi.ItemName = defaults.ItemName
+    }
+}

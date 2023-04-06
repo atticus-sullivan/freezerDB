@@ -83,3 +83,11 @@ func GetAllCategories(db *db.DB) (Categories, error) {
 	}
 	return ret, nil
 }
+
+// FillDefaults sets any zero values in the given Category to their
+// default values based on the provided Defaults.
+func (c *Category) FillDefaults(defaults *Category) {
+	if c.Name == "" {
+		c.Name = defaults.Name
+	}
+}

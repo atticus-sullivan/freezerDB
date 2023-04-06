@@ -88,3 +88,14 @@ func GetAllItemTypes(db *db.DB) (ItemTypes, error) {
 	}
 	return ret, nil
 }
+
+// FillDefaults sets any zero values in the given ItemType to their
+// default values based on the provided Defaults.
+func (it *ItemType) FillDefaults(defaults *ItemType) {
+	if it.Name == "" {
+		it.Name = defaults.Name
+	}
+	if it.CategoryName == "" {
+		it.CategoryName = defaults.CategoryName
+	}
+}

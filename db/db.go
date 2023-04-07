@@ -8,7 +8,7 @@ import (
 	goMySql "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	migrateFile "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	"gopkg.in/yaml.v3"
 )
@@ -79,16 +79,21 @@ func NewDB(fn string) (*DB, error) {
 		return nil, fmt.Errorf("could not ping DB... %v", err)
 	}
 
-	// run migration
+	// migration
 	driver, err := mysql.WithInstance(db.DB.DB, &mysql.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize migrate instance: %v", err)
 	}
-	m, err := migrate.NewWithDatabaseInstance("file://"+dbConf.MigrationsPath, "mysql", driver)
+	// open source
+	src, err := (&migrateFile.File{}).Open("file://"+dbConf.MigrationsPath)
+    if err != nil {
+        return nil, fmt.Errorf("failed to open migration source: %w", err)
+	}
+    defer src.Close()
+	m, err := migrate.NewWithInstance("file", src, "mysql", driver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize migrate: %v", err)
 	}
-	defer m.Close()
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return nil, fmt.Errorf("failed to apply migrations: %v", err)
 	}

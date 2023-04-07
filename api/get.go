@@ -13,7 +13,7 @@ func getFreezerItem(db *sqlx.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Query from database
 		var items []FreezerItemResponse
-		err := db.Select(&items, "SELECT * FROM freezer_items ORDER BY name")
+		err := db.Select(&items, "SELECT * FROM freezer_items ORDER BY item_name")
 		if err != nil {
 			render.Render(w, r, ErrInternal(err))
 			return

@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"github.com/atticus-sullivan/freezerDB/db"
 	"github.com/atticus-sullivan/freezerDB/db/models"
-	"os"
-
-	"github.com/alexflint/go-arg"
 )
 
 type CmdArgs struct {
@@ -50,166 +47,155 @@ type itemArgs struct {
 	} `arg:"subcommand:rm"`
 }
 
-// might panic
-func Cli(vargs []string, db *db.DB) {
-	args := CmdArgs{}
-	parser, err := arg.NewParser(arg.Config{}, &args)
-	if err != nil {
-		panic(err)
+// allowed to panic
+func Cli(args *CmdArgs, db *db.DB) {
+	switch {
+	case args.Cat != nil:
+		handleCat(args.Cat, db)
+	case args.Item != nil:
+		handleItem(args.Item, db)
+	case args.Type != nil:
+		handleType(args.Type, db)
 	}
-	err = parser.Parse(vargs)
-	switch err {
-	case arg.ErrHelp:
-		err := parser.WriteHelpForSubcommand(os.Stdout, parser.SubcommandNames()...)
+}
+
+// allowed to panic
+func handleType(args *typeArgs, db *db.DB) {
+	switch {
+	case args.AddArgs != nil:
+		a := args.AddArgs
+		_, err := db.NamedExec("INSERT INTO item_types (name, category_name) VALUES (:name, :category_name)", a)
 		if err != nil {
 			panic(err)
 		}
-		return
-	case arg.ErrVersion:
-		fmt.Println("version not implemented")
-		return
-	default:
+	case args.LsArgs != nil:
+		a := args.LsArgs
+		if a.Name == "" {
+			rows, err := db.Queryx("select * from item_types;")
+			if err != nil {
+				panic(err)
+			}
+			defer rows.Close()
+			var cat models.ItemType
+			for rows.Next() {
+				if err := rows.StructScan(&cat); err != nil {
+					panic(err)
+				}
+				fmt.Printf("%+v\n", &cat)
+			}
+		} else {
+			rows, err := db.Queryx("select * from item_types where name = ?;", a.Name)
+			if err != nil {
+				panic(err)
+			}
+			defer rows.Close()
+			var cat models.Category
+			for rows.Next() {
+				if err := rows.StructScan(&cat); err != nil {
+					panic(err)
+				}
+				fmt.Printf("%+v\n", &cat)
+			}
+		}
+	case args.RmArgs != nil:
+		a := args.RmArgs
+		_, err := db.Exec("DELETE FROM item_types WHERE name = ?", a.Name)
+		if err != nil {
+			panic(err)
+		}
 	}
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+}
 
-	// TODO are there arguments which need to be checked if they are valid?
-
+// allowed to panic
+func handleItem(args *itemArgs, db *db.DB) {
 	switch {
-	case args.Cat != nil:
-		switch {
-		case args.Cat.AddArgs != nil:
-			a := args.Cat.AddArgs
-			err := a.Category.Insert(db)
+	case args.AddArgs != nil:
+		a := args.AddArgs
+		_, err := db.NamedExec("INSERT INTO freezer_items (date, identifier, amount, misc, item_name) VALUES (:date, :identifier, :amount, :misc, :item_name)", a)
+		if err != nil {
+			panic(err)
+		}
+	case args.LsArgs != nil:
+		a := args.LsArgs
+		if a.ID == 0 {
+			rows, err := db.Queryx("select * from freezer_items;")
 			if err != nil {
 				panic(err)
 			}
-		case args.Cat.LsArgs != nil:
-			a := args.Cat.LsArgs
-			if a.Name == "" {
-				rows, err := db.Queryx("select * from categories;")
-				if err != nil {
+			defer rows.Close()
+			var item models.FreezerItem
+			for rows.Next() {
+				if err := rows.StructScan(&item); err != nil {
 					panic(err)
 				}
-				defer rows.Close()
-				var cat models.Category
-				for rows.Next() {
-					if err := rows.StructScan(&cat); err != nil {
-						panic(err)
-					}
-					fmt.Println(&cat)
-				}
-			} else {
-				rows, err := db.Queryx("select * from categories where name = ?;", a.Name)
-				if err != nil {
-					panic(err)
-				}
-				defer rows.Close()
-				var cat models.Category
-				for rows.Next() {
-					if err := rows.StructScan(&cat); err != nil {
-						panic(err)
-					}
-					fmt.Println(&cat)
-				}
+				fmt.Printf("%+v\n", &item)
 			}
-		case args.Cat.RmArgs != nil:
-			a := args.Cat.RmArgs
-			err := models.DeleteCategory(db, a.Name)
+		} else {
+			rows, err := db.Queryx("select * from freezer_items where id = ?;", a.ID)
 			if err != nil {
 				panic(err)
+			}
+			defer rows.Close()
+			var item models.FreezerItem
+			for rows.Next() {
+				if err := rows.StructScan(&item); err != nil {
+					panic(err)
+				}
+				fmt.Printf("%+v\n", &item)
 			}
 		}
+	case args.RmArgs != nil:
+		a := args.RmArgs
+		_, err := db.Exec("DELETE FROM freezer_items WHERE id = ?", a.ID)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
 
-	case args.Item != nil:
-		switch {
-		case args.Item.AddArgs != nil:
-			a := args.Item.AddArgs
-			err := a.FreezerItem.Insert(db)
+// allowed to panic
+func handleCat(args *catArgs, db *db.DB) {
+	switch {
+	case args.AddArgs != nil:
+		a := args.AddArgs
+		_, err := db.NamedExec("INSERT INTO categories (name) VALUES (:name)", a)
+		if err != nil {
+			panic(err)
+		}
+	case args.LsArgs != nil:
+		a := args.LsArgs
+		if a.Name == "" {
+			rows, err := db.Queryx("select * from categories;")
 			if err != nil {
 				panic(err)
 			}
-		case args.Item.LsArgs != nil:
-			a := args.Item.LsArgs
-			if a.ID == 0 {
-				rows, err := db.Queryx("select * from freezer_items;")
-				if err != nil {
+			defer rows.Close()
+			var cat models.Category
+			for rows.Next() {
+				if err := rows.StructScan(&cat); err != nil {
 					panic(err)
 				}
-				defer rows.Close()
-				var item models.FreezerItem
-				for rows.Next() {
-					if err := rows.StructScan(&item); err != nil {
-						panic(err)
-					}
-					fmt.Println(&item)
-				}
-			} else {
-				rows, err := db.Queryx("select * from freezer_items where id = ?;", a.ID)
-				if err != nil {
-					panic(err)
-				}
-				defer rows.Close()
-				var item models.FreezerItem
-				for rows.Next() {
-					if err := rows.StructScan(&item); err != nil {
-						panic(err)
-					}
-					fmt.Println(&item)
-				}
+				fmt.Printf("%+v\n", &cat)
 			}
-		case args.Item.RmArgs != nil:
-			a := args.Item.RmArgs
-			err := models.DeleteFreezerItem(db, a.ID)
+		} else {
+			rows, err := db.Queryx("select * from categories where name = ?;", a.Name)
 			if err != nil {
 				panic(err)
+			}
+			defer rows.Close()
+			var cat models.Category
+			for rows.Next() {
+				if err := rows.StructScan(&cat); err != nil {
+					panic(err)
+				}
+				fmt.Printf("%+v\n", &cat)
 			}
 		}
-	case args.Type != nil:
-		switch {
-		case args.Type.AddArgs != nil:
-			a := args.Type.AddArgs
-			err := a.ItemType.Insert(db)
-			if err != nil {
-				panic(err)
-			}
-		case args.Type.LsArgs != nil:
-			a := args.Type.LsArgs
-			if a.Name == "" {
-				rows, err := db.Queryx("select * from item_types;")
-				if err != nil {
-					panic(err)
-				}
-				defer rows.Close()
-				var cat models.ItemType
-				for rows.Next() {
-					if err := rows.StructScan(&cat); err != nil {
-						panic(err)
-					}
-					fmt.Println(&cat)
-				}
-			} else {
-				rows, err := db.Queryx("select * from item_types where name = ?;", a.Name)
-				if err != nil {
-					panic(err)
-				}
-				defer rows.Close()
-				var cat models.Category
-				for rows.Next() {
-					if err := rows.StructScan(&cat); err != nil {
-						panic(err)
-					}
-					fmt.Println(&cat)
-				}
-			}
-		case args.Type.RmArgs != nil:
-			a := args.Type.RmArgs
-			err := models.DeleteItemType(db, a.Name)
-			if err != nil {
-				panic(err)
-			}
+	case args.RmArgs != nil:
+		a := args.RmArgs
+		_, err := db.Exec("DELETE FROM categories WHERE name=?", a.Name)
+		if err != nil {
+			panic(err)
 		}
 	}
 }

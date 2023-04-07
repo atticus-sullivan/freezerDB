@@ -2,25 +2,74 @@ package db
 
 import (
 	"fmt"
+	"os"
+	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	goMySql "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
+	"gopkg.in/yaml.v3"
 )
 
-// TODO config
-const migrationsPath = "file://home/pi/freezerDB/migrations"
+type mySqlConf struct {
+	User           string `yaml:"user"`
+	Password       string `yaml:"password"`
+	Net            string `yaml:"net"`
+	Addr           string `yaml:"addr"`
+	DBName         string `yaml:"dbName"`
+	MigrationsPath string `yaml:"migrationsPath"`
+	Location       string `yaml:"location"`
+	Loc            *time.Location
+}
+
+func newMySqlConf(fn string) (*mySqlConf, error) {
+	r, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	d := yaml.NewDecoder(r)
+	var c mySqlConf
+	if err := d.Decode(&c); err != nil {
+		return nil, err
+	}
+
+	c.Loc, err = time.LoadLocation(c.Location)
+	if err != nil {
+		return nil, err
+	}
+
+	return &c, nil
+}
 
 // extend by exec, query, prepare or embedd sql.DB so that this can be used directly
 type DB struct {
 	sqlx.DB
 }
 
-func NewDB(dataSourceName string) (*DB, error) {
-	// source.Register("file2", &file.File{})
-	db_, err := sqlx.Open("mysql", dataSourceName)
+func NewDB(fn string) (*DB, error) {
+	dbConf, err := newMySqlConf(fn)
+	if err != nil {
+		panic(err)
+	}
+
+	cfg := goMySql.NewConfig()
+	cfg.User = dbConf.User
+	cfg.Passwd = dbConf.Password
+	cfg.Net = dbConf.Net
+	cfg.Addr = dbConf.Addr
+	cfg.DBName = dbConf.DBName
+	cfg.Loc = dbConf.Loc
+	cfg.MultiStatements = true
+	cfg.Params = map[string]string{
+		"charset":   "utf8mb4",
+		"parseTime": "True",
+	}
+
+	db_, err := sqlx.Open("mysql", cfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
@@ -35,10 +84,11 @@ func NewDB(dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize migrate instance: %v", err)
 	}
-	m, err := migrate.NewWithDatabaseInstance("file:///home/pi/freezerDB/migrations", "mysql", driver)
+	m, err := migrate.NewWithDatabaseInstance("file://"+dbConf.MigrationsPath, "mysql", driver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize migrate: %v", err)
 	}
+	defer m.Close()
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return nil, fmt.Errorf("failed to apply migrations: %v", err)
 	}

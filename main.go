@@ -1,17 +1,34 @@
 package main
 
 import (
-	"github.com/atticus-sullivan/freezerDB/cli"
-	"github.com/atticus-sullivan/freezerDB/db"
-	"log"
+	"context"
+	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
 	"os/user"
 	"path/filepath"
+	"syscall"
 	"time"
 
-	goMySql "github.com/go-sql-driver/mysql"
+	"github.com/alexflint/go-arg"
+	"github.com/atticus-sullivan/freezerDB/api"
+	"github.com/atticus-sullivan/freezerDB/cli"
+	dbMod "github.com/atticus-sullivan/freezerDB/db"
+
 	"gopkg.in/yaml.v3"
 )
+
+type ServerConf struct {
+	Key  string `yaml:"key"`
+	Addr string `yaml:"addr"`
+}
+
+type Args struct {
+	Cli     *cli.CmdArgs `arg:"subcommand:cli"`
+	Rest    *struct{}    `arg:"subcommand:rest"`
+	RestDoc *struct{}    `arg:"subcommand:restDoc"`
+}
 
 // get the directory for the configuration of this project
 func getCfgDir() string {
@@ -23,60 +40,84 @@ func getCfgDir() string {
 	return filepath.Join(dir, "freezer")
 }
 
-type mySqlConf struct {
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	Net      string `yaml:"net"`
-	Addr     string `yaml:"addr"`
-	DBName   string `yaml:"dbName"`
-	Location string `yaml:"location"`
-	Loc      *time.Location
-}
-
-func newMySqlConf(fn string) (*mySqlConf, error) {
-	r, err := os.Open(fn)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
-	d := yaml.NewDecoder(r)
-	var c mySqlConf
-	if err := d.Decode(&c); err != nil {
-		return nil, err
-	}
-
-	c.Loc, err = time.LoadLocation(c.Location)
-	if err != nil {
-		return nil, err
-	}
-
-	return &c, nil
-}
-
 func main() {
-	dbConf, err := newMySqlConf(filepath.Join(getCfgDir(), "freezer.yaml"))
+	var args Args
+	parser, err := arg.NewParser(arg.Config{}, &args)
 	if err != nil {
 		panic(err)
 	}
 
-	cfg := goMySql.NewConfig()
-	cfg.User = dbConf.User
-	cfg.Passwd = dbConf.Password
-	cfg.Net = dbConf.Net
-	cfg.Addr = dbConf.Addr
-	cfg.DBName = dbConf.DBName
-	cfg.Loc = dbConf.Loc
-	cfg.Params = map[string]string{
-		"charset":   "utf8mb4",
-		"parseTime": "True",
+	if err := parser.Parse(os.Args[1:]); err != nil {
+		switch err {
+		case arg.ErrVersion:
+			println("Version is not implemented")
+			return
+		case arg.ErrHelp:
+			parser.WriteHelp(os.Stdout)
+			return
+		default:
+			panic(err)
+		}
 	}
-	// Setup database connection
-	db,err := db.NewDB(cfg.FormatDSN())
-	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
-	}
-	defer db.Close()
 
-	cli.Cli(os.Args[1:], db)
+	// initialize database connection if needed
+	var db *dbMod.DB
+	if args.RestDoc == nil {
+		// Setup database connection
+		db, err = dbMod.NewDB(filepath.Join(getCfgDir(), "freezer.yaml"))
+		if err != nil {
+			panic(err)
+		}
+		defer db.Close()
+	} else {
+		db = &dbMod.DB{}
+	}
+
+	switch {
+	case args.Cli != nil:
+		cli.Cli(args.Cli, db)
+		return
+
+	case args.RestDoc != nil:
+		s := api.CreateNewServer(&db.DB)
+		s.MountHandlers("")
+		s.Doc()
+
+	case args.Rest != nil:
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
+
+		var serverConf ServerConf
+		f, err := os.Open(filepath.Join(getCfgDir(), "server.yaml"))
+		if err != nil {
+			panic(err)
+		}
+		if err := yaml.NewDecoder(f).Decode(&serverConf); err != nil {
+			panic(err)
+		}
+
+		s := api.CreateNewServer(&db.DB)
+		s.MountHandlers(serverConf.Key)
+		srv := &http.Server{
+			Addr:    serverConf.Addr,
+			Handler: s.Router,
+		}
+		go func(srv *http.Server) {
+			fmt.Println(srv.ListenAndServe())
+		}(srv)
+		fmt.Printf("Server Started on %s\n", serverConf.Addr)
+
+		// Block until a signal is received.
+		<-c
+
+		// shutdown
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer func() {
+			cancel() // cancel context if returning
+		}()
+		if err := srv.Shutdown(ctx); err != nil {
+			panic(err)
+		}
+		fmt.Println("Server Stopped")
+	}
 }

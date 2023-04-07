@@ -13,9 +13,9 @@ type FreezerItemList []FreezerItem
 type FreezerItem struct {
 	ID         uint      `json:"id" db:"id"`
 	Date       time.Time `json:"date" db:"date" arg:"-d,--date"` // default to today
-	Identifier string    `json:"identifier,omitempty" db:"identifier" arg:"--identifier"`
+	Identifier string    `json:"identifier" db:"identifier" arg:"--identifier"`
 	Amount     string    `json:"amount" db:"amount" arg:"-a,--amount,required"`
-	Misc       string    `json:"misc,omitempty" db:"misc" arg:"-m,--misc"`
+	Misc       string    `json:"misc" db:"misc" arg:"-m,--misc"`
 	ItemName   string    `json:"item_name" db:"item_name" arg:"-n,--name,required"`
 }
 

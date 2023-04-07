@@ -1,6 +1,9 @@
 package models
 
 import (
+	"bufio"
+	"fmt"
+	"html"
 	"io"
 	"strconv"
 	"time"
@@ -16,72 +19,71 @@ type FreezerItem struct {
 	ItemName   string    `json:"item_name" db:"item_name" arg:"-n,--name,required"`
 }
 
+const (
+	dateFormat = "2006-01-02"
+)
+
+var frItemHdr [6]string = [6]string{"ID", "ItemName", "Date", "Identifier", "Amount", "Misc"}
+
 // writes a dot node table to the writer
-func (freezerItems FreezerItemList) WriteDot(w io.Writer) {
-	w.Write([]byte(`
+func (items FreezerItemList) WriteDot(wParam io.Writer) error {
+	w := bufio.NewWriter(wParam)
+	defer w.Flush()
+
+	_, err := w.Write([]byte(`
 digraph structs {
 	node [shape=plaintext] struct [label=<
 		<table cellspacing="2" border="0" rows="*" columns="*">
-		<tr>`))
-	// write header TODO localize?
-	w.Write([]byte("<td><B>ID</B></td>\n"))
-	w.Write([]byte("<td><B>Name</B></td>\n"))
-	w.Write([]byte("<td><B>Identifier</B></td>\n"))
-	w.Write([]byte("<td><B>Amount</B></td>\n"))
-	w.Write([]byte("<td><B>Date</B></td>\n"))
-	w.Write([]byte("<td><B>Misc</B></td>\n"))
-	w.Write([]byte("</tr>\n"))
-
-	for _, f := range freezerItems {
-		w.Write([]byte("<tr>"))
-
-		// TODO html escape!!!
-		// TODO formatter like newlines (<BR/>) every 15 char
-		w.Write([]byte("<td>  "))
-		w.Write([]byte(strconv.Itoa(int(f.ID))))
-		w.Write([]byte("  </td>"))
-
-		w.Write([]byte("<td>  "))
-		w.Write([]byte(f.ItemName))
-		w.Write([]byte("  </td>"))
-
-		w.Write([]byte("<td>  "))
-		w.Write([]byte(f.Identifier))
-		w.Write([]byte("  </td>"))
-
-		w.Write([]byte("<td>  "))
-		w.Write([]byte(f.Amount))
-		w.Write([]byte("  </td>"))
-
-		w.Write([]byte("<td>  "))
-		w.Write([]byte(f.Date.Format("2006-01-02")))
-		w.Write([]byte("  </td>"))
-
-		w.Write([]byte("<td>  "))
-		w.Write([]byte(f.Misc))
-		w.Write([]byte("  </td>"))
-
-		w.Write([]byte("</tr>"))
+`))
+	if err != nil {
+		return err
 	}
-	w.Write([]byte("</table>>];\n"))
+
+	// write header
+	if err := writeDotHdr(w, frItemHdr[:]); err != nil {
+		return err
+	}
+
+	// write rows
+	for _, item := range items {
+		_, err = fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
+			html.EscapeString(strconv.FormatUint(uint64(item.ID), 10)),
+			html.EscapeString(item.ItemName),
+			html.EscapeString(item.Date.Format(dateFormat)),
+			html.EscapeString(item.Identifier),
+			html.EscapeString(item.Amount),
+			html.EscapeString(item.Misc),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = w.Write([]byte("</table>>];\n"))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // FillDefaults sets any zero values in the given FreezerItem to their
 // default values based on the provided Defaults.
 func (fi *FreezerItem) FillDefaults(defaults *FreezerItem) {
-    if fi.Date.IsZero() {
-        fi.Date = defaults.Date
-    }
-    if fi.Identifier == "" {
-        fi.Identifier = defaults.Identifier
-    }
-    if fi.Amount == "" {
-        fi.Amount = defaults.Amount
-    }
-    if fi.Misc == "" {
-        fi.Misc = defaults.Misc
-    }
-    if fi.ItemName == "" {
-        fi.ItemName = defaults.ItemName
-    }
+	if defaults != nil {
+		if fi.Date.IsZero() {
+			fi.Date = defaults.Date
+		}
+		if fi.Identifier == "" {
+			fi.Identifier = defaults.Identifier
+		}
+		if fi.Amount == "" {
+			fi.Amount = defaults.Amount
+		}
+		if fi.Misc == "" {
+			fi.Misc = defaults.Misc
+		}
+		if fi.ItemName == "" {
+			fi.ItemName = defaults.ItemName
+		}
+	}
 }

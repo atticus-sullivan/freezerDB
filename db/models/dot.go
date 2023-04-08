@@ -12,7 +12,7 @@ func writeDotHdr(w *bufio.Writer, headers []string) error {
 		return err
 	}
 	for _, header := range headers {
-		_, err = fmt.Fprintf(w, "<th><b>%s</b></th>", header)
+		_, err = fmt.Fprintf(w, "<td><b>%s</b></td>", header)
 		if err != nil {
 			return err
 		}

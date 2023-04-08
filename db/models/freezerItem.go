@@ -23,7 +23,7 @@ const (
 	dateFormat = "2006-01-02"
 )
 
-var frItemHdr [6]string = [6]string{"ID", "ItemName", "Date", "Identifier", "Amount", "Misc"}
+var frItemHdr [6]string = [6]string{"ID", "Name", "Datum", "Merkmal", "Anzahl", "Bemerkung"}
 
 // writes a dot node table to the writer
 func (items FreezerItemList) WriteDot(wParam io.Writer) error {

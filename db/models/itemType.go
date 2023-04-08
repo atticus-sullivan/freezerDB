@@ -13,7 +13,7 @@ type ItemType struct {
 	CategoryName string `json:"category_name" db:"category_name" arg:"-c,--cat,required"`
 }
 
-var itemTypeHdr [2]string = [2]string{"Name", "Category"}
+var itemTypeHdr [2]string = [2]string{"Name", "Kategorie"}
 
 // writes a dot node table to the writer
 func (items ItemTypeList) WriteDot(wParam io.Writer) error {

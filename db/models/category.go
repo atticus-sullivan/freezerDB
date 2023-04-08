@@ -35,7 +35,7 @@ digraph structs {
 
 	// write rows
 	for _, category := range categories {
-		_, err = fmt.Fprintf(w, "<tr><td>%s</td></tr>",
+		_, err = fmt.Fprintf(w, "<tr><td>  %s  </td></tr>",
 			html.EscapeString(category.Name),
 		)
 		if err != nil {

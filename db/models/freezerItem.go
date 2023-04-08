@@ -46,7 +46,7 @@ digraph structs {
 
 	// write rows
 	for _, item := range items {
-		_, err = fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
+		_, err = fmt.Fprintf(w, "<tr><td>  %s  </td><td>  %s  </td><td>  %s  </td><td>  %s  </td><td>  %s  </td><td>  %s  </td></tr>",
 			html.EscapeString(strconv.FormatUint(uint64(item.ID), 10)),
 			html.EscapeString(item.ItemName),
 			html.EscapeString(item.Date.Format(dateFormat)),

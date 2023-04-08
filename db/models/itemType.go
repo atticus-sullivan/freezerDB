@@ -45,7 +45,7 @@ digraph structs {
 		}
 	}
 
-	_, err = w.Write([]byte("</table>>];\n"))
+	_, err = w.Write([]byte("</table>>];}\n"))
 	if err != nil {
 		return err
 	}
